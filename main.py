@@ -18,7 +18,7 @@ app.add_middleware(
 )
 
 # 3. إعداد عميل Gemini API مع مفتاحك الخاص المدمج
-GEMINI_API_KEY = "AQ.Ab8RN6Kpa1fJwF9nKHB2ieiIydYWxMaTQ5XXSBy21mCbEIM6HQ"
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # 4. قاعدة معارف وتوجيهات الأكاديمية (System Prompt)
