@@ -1,0 +1,63 @@
+import os
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from google import genai
+from google.genai import types
+
+# 1. إعداد تطبيق FastAPI
+app = FastAPI(title="Ashur City Academy AI Backend")
+
+# 2. السماح للموقع بالاتصال بالسيرفر (CORS)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # السماح لأي موقع بالاتصال (يمكن تخصيصه لاحقاً)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 3. إعداد عميل Gemini API مع مفتاحك الخاص المدمج
+GEMINI_API_KEY = "AQ.Ab8RN6Kpa1fJwF9nKHB2ieiIydYWxMaTQ5XXSBy21mCbEIM6HQ"
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# 4. قاعدة معارف وتوجيهات الأكاديمية (System Prompt)
+ACADEMY_KNOWLEDGE_BASE = """
+أنت المساعد الذكي الرسمي والخاص بـ "أكاديمية آشور سيتي لكرة القدم" (Ashur City Academy).
+مهمتك: الإجابة على استفسارات المشتركين وأولياء الأمور بلباقة، احترافية، وحماس.
+
+معلومات الأكاديمية الرسمية:
+- الأهداف: تطوير المهارات الفردية والجماعية للاعبين وإعدادهم للأندية.
+- الفئات العمرية: تستقبل الأكاديمية البراعم والناشئين من عمر 6 سنوات حتى 17 سنة.
+- أيام التدريب: (الأحد، الثلاثاء، الخميس من الساعة 4:00 مساءً حتى 6:00 مساءً).
+- التجهيزات الموفرة: طقم الأكاديمية الكامل (قميص، شورت، حقيبة، وحامي ساقين).
+
+تعليمات التعامل:
+1. أجب دائماً باللغة العربية بأسلوب راقٍ ومحترف يعكس هوية "أكاديمية آشور سيتي".
+2. إذا سُئلت عن شيء غير متعلق بالأكاديمية أو كرة القدم، اعتذر بلباقة ووضّح أنك مخصص لمساعدة زوار الأكاديمية فقط.
+3. شجع الزوار دائماً على الانضمام والتسجيل.
+"""
+
+# 5. هيكل البيانات المستلمة من الشات
+class UserQuery(BaseModel):
+    message: str
+
+# 6. نقطة الاتصال (API Endpoint) لمعالجة الرسائل
+@app.post("/chat")
+async def chat_with_agent(query: UserQuery):
+    if not query.message.strip():
+        raise HTTPException(status_code=400, detail="الرسالة فارغة")
+    
+    try:
+        # توليد الرد عبر نموذج Gemini 2.5 Flash
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=query.message,
+            config=types.GenerateContentConfig(
+                system_instruction=ACADEMY_KNOWLEDGE_BASE,
+                temperature=0.3, # لضمان الالتزام بالحقائق وثبات الإجابات
+            ),
+        )
+        return {"reply": response.text}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"حدث خطأ في الخادم: {str(e)}")
